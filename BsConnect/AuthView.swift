@@ -23,6 +23,11 @@ struct AuthView: View {
     @State private var phone = ""
     @State private var smsCode = ""
     @State private var isSmsSent = false
+    @State private var isLoading = false
+    @State private var authError: AuthError?
+    @State private var showAlert = false
+
+    private let authService = AuthService()
 
     var body: some View {
         ScrollView {
@@ -54,10 +59,10 @@ struct AuthView: View {
                     }
                 }
 
-                PrimaryButton(title: buttonTitle) {
-                    // TODO: логика авторизации
+                PrimaryButton(title: isLoading ? "Вход..." : buttonTitle) {
                     handleSubmit()
                 }
+                .disabled(isLoading)
                 .padding(.top, 8)
             }
             .padding(24)
@@ -65,6 +70,49 @@ struct AuthView: View {
         .background(Color.appBackground.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
+        .alert(alertTitle, isPresented: $showAlert) {
+            Button("Повторить") { handleSubmit() }
+        } message: {
+            if let message = alertMessage { Text(message) }
+        }
+    }
+
+    // MARK: Ошибки
+
+    private var alertTitle: String {
+        authError == .invalidCredentials ? "Неверный логин или пароль" : "Ошибка"
+    }
+
+    private var alertMessage: String? {
+        switch authError {
+        case .connection:
+            return "Нет подключения к интернету или сервер недоступен. Проверьте соединение и повторите."
+        case .serviceUnavailable:
+            return "Сервис временно недоступен. Повторите попытку позже."
+        case .invalidCredentials, .none:
+            return nil
+        }
+    }
+
+    // MARK: Вход
+
+    private func loginWithPassword() {
+        isLoading = true
+        Task {
+            do {
+                try await authService.login(login: login, password: password)
+                await MainActor.run {
+                    isLoading = false
+                    onAuthorized()
+                }
+            } catch {
+                await MainActor.run {
+                    isLoading = false
+                    authError = (error as? AuthError) ?? .serviceUnavailable
+                    showAlert = true
+                }
+            }
+        }
     }
 
     // MARK: Subviews
@@ -112,7 +160,7 @@ struct AuthView: View {
     private func handleSubmit() {
         switch method {
         case .login:
-            onAuthorized()
+            loginWithPassword()
         case .phone:
             if isSmsSent { onAuthorized() } else { isSmsSent = true }
         }
