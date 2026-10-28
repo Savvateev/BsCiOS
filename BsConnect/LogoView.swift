@@ -64,12 +64,12 @@ struct LogoView: View {
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: size * 0.25)
-                .stroke(Color.appBlue, lineWidth: 2)           // рамка вместо синей плитки
+//            RoundedRectangle(cornerRadius: size * 0.25)
+//                .stroke(Color.appBlue, lineWidth: 2)           // рамка вместо синей плитки
             Image("logo")
                 .resizable()
                 .scaledToFit()
-                .frame(width: size * 0.45, height: size * 0.45)   // тот же размер, что был у антенны
+                .frame(width: size, height: size)   // тот же размер, что был у антенны
         }
         .frame(width: size, height: size)
         .accessibilityLabel("Логотип")
