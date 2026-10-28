@@ -61,24 +61,18 @@ extension Color {
 
 struct LogoView: View {
     var size: CGFloat = 96
-    var framed: Bool = true
-
-    private var cornerRadius: CGFloat { size * 0.2 }
 
     var body: some View {
-        Image("logo")
-            .resizable()
-            .scaledToFit()
-            .padding(size * 0.12)
-            .frame(width: size, height: size)
-            .background(Color.appBackground)          // белый в светлой, чёрный в тёмной теме
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(Color.appBlue, lineWidth: 2)
-                    .opacity(framed ? 1 : 0)
-            )
-            .accessibilityLabel("Логотип")
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.25)
+                .fill(Color.appBlue)
+            Image("logo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: size * 0.45, height: size * 0.45)   // тот же размер, что был у антенны
+        }
+        .frame(width: size, height: size)
+        .accessibilityLabel("Логотип")
     }
 }
 
