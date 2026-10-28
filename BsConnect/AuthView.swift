@@ -27,8 +27,18 @@ struct AuthView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                LogoView()
-                    .padding(.top, 40)
+                VStack(spacing: 12) {
+                    Image("logo_w_text")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 220)
+                        .accessibilityLabel("Логотип")
+
+                    Text("Личный кабинет абонента")
+                        .font(.subheadline)
+                        .foregroundColor(.appTextSecondary)
+                }
+                .padding(.top, 40)
 
                 Picker("Способ входа", selection: $method) {
                     ForEach(Method.allCases) { Text($0.rawValue).tag($0) }
