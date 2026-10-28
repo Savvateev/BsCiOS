@@ -76,8 +76,8 @@ enum TokenStore {
 // MARK: - Сервис авторизации
 
 final class AuthService {
-    /// TODO: вынести в конфиг сборки (Debug/Release)
-    static let baseURL = URL(string: "https://BASE_URL_HERE")!
+    static let baseURL = URL(string: "https://api.bsvyazi.ru/api/v1")!
+    static let userAgent = "MikbillApiAgent/1.0"
 
     private let session: URLSession
 
@@ -85,13 +85,11 @@ final class AuthService {
         self.session = session
     }
 
-    /// POST /api/v1/cabinet/auth/login (form-data: login, password)
+    /// POST {baseURL}/cabinet/auth/login, form-data: login, password
     func login(login: String, password: String) async throws {
-        let url = Self.baseURL.appendingPathComponent("api/v1/cabinet/auth/login")
         let boundary = "Boundary-\(UUID().uuidString)"
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        var request = makeRequest(path: "cabinet/auth/login", method: "POST")
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.httpBody = Self.formBody(
             fields: ["login": login, "password": password],
@@ -118,6 +116,15 @@ final class AuthService {
     }
 
     // MARK: Helpers
+
+    /// Общий конструктор запросов: базовый URL и обязательный User-Agent для каждого запроса
+    private func makeRequest(path: String, method: String) -> URLRequest {
+        let url = Self.baseURL.appendingPathComponent(path)
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue(Self.userAgent, forHTTPHeaderField: "User-Agent")
+        return request
+    }
 
     private func perform(_ request: URLRequest) async throws -> (Data, URLResponse) {
         do {
