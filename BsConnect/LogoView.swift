@@ -65,7 +65,7 @@ struct LogoView: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: size * 0.25)
-                .fill(Color.appBlue)
+                .stroke(Color.appBlue, lineWidth: 2)           // рамка вместо синей плитки
             Image("logo")
                 .resizable()
                 .scaledToFit()
