@@ -71,7 +71,12 @@ struct AuthView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .alert(alertTitle, isPresented: $showAlert) {
-            Button("Повторить") { handleSubmit() }
+            if authError == .invalidCredentials {
+                // Неверные данные: повторять с теми же значениями нет смысла, даём исправить
+                Button("OK", role: .cancel) { password = "" }
+            } else {
+                Button("Повторить") { handleSubmit() }
+            }
         } message: {
             if let message = alertMessage { Text(message) }
         }
