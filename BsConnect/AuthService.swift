@@ -208,7 +208,7 @@ struct CabinetUser: Decodable {
     let fio: String
     let packet: String              // тарифный план, например "Unlim-130"
     let deposit: String             // текущий баланс
-    let nextPaymentDate: String     // дата следующего платежа (поле уточнить)
+    let nextPaymentDate: String     // дата следующего платежа: date_itog, формат dd-MM-yyyy
     let tvSubscriptionName: String? // доп. подписка ТВ (из fee.subscriptions.detailed)
     let tariffPrice: String         // стоимость тарифа (fee.packet.price)
     let subscriptionPrice: String   // стоимость подписки (fee.subscriptions.total)
@@ -216,7 +216,7 @@ struct CabinetUser: Decodable {
 
     private enum CodingKeys: String, CodingKey {
         case fio, packet, deposit, fee
-        case nextPaymentDate = "erec_payment"
+        case nextPaymentDate = "date_itog"
     }
 
     private struct Fee: Decodable {
