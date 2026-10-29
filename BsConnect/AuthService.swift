@@ -125,6 +125,9 @@ final class AuthService {
             throw AuthError.serviceUnavailable
         }
         TokenStore.save(token)
+        #if DEBUG
+        print("[Auth] token: \(token)")   // только в отладочной сборке
+        #endif
     }
 
     /// Отправляет form-data запрос и проверяет ответ. Возвращает полный JSON ответа.
