@@ -107,14 +107,26 @@ final class AuthService {
         request.setValue(token, forHTTPHeaderField: "Authorization")
 
         let (data, response) = try await perform(request)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+        guard let http = response as? HTTPURLResponse else { throw AuthError.serviceUnavailable }
+
+        #if DEBUG
+        print("[Auth] cabinet/user status: \(http.statusCode)")
+        print("[Auth] cabinet/user body: \(String(decoding: data.prefix(500), as: UTF8.self))")
+        #endif
+
+        guard http.statusCode == 200 else {
             throw AuthError.serviceUnavailable
         }
-        guard let envelope = try? JSONDecoder().decode(UserEnvelope.self, from: data),
-              envelope.success else {
+        do {
+            let envelope = try JSONDecoder().decode(UserEnvelope.self, from: data)
+            guard envelope.success else { throw AuthError.serviceUnavailable }
+            return envelope.data
+        } catch let error as DecodingError {
+            #if DEBUG
+            print("[Auth] cabinet/user decode error: \(error)")
+            #endif
             throw AuthError.serviceUnavailable
         }
-        return envelope.data
     }
 
     // MARK: Helpers
