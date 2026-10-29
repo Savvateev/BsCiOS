@@ -8,25 +8,20 @@ import Foundation
 // MARK: - Ошибки
 
 enum AuthError: Error, Equatable {
-    /// Нет интернета, API недоступен или ошибка сертификата (1 тип: показываем «Повторить»)
+    /// Нет интернета, API недоступен или ошибка сертификата (показываем «Повторить»)
     case connection
-    /// Сервис временно недоступен (код 2: показываем текст и «Повторить»)
+    /// Сервис временно недоступен (показываем текст и «Повторить»)
     case serviceUnavailable
-    /// Неверный логин или пароль (ответ сервера, не сетевая ошибка)
+    /// Неверные данные: логин/пароль, номер или код из SMS (код -401)
     case invalidCredentials
 }
 
-// MARK: - Модель ответа
+// MARK: - Статус ответа (поле data разбираем отдельно, его формат меняется)
 
-private struct APIResponse<T: Decodable>: Decodable {
+private struct APIStatus: Decodable {
     let success: Bool
     let code: Int
-    let data: T?
     let message: String?
-}
-
-private struct TokenData: Decodable {
-    let token: String
 }
 
 // MARK: - Хранилище токена (Keychain, шифруется системой)
@@ -35,8 +30,8 @@ enum TokenStore {
     private static let service = "ru.bsconnect.auth"
     private static let account = "bearer-token"
 
+    /// Токен сохраняем как пришёл с сервера (он уже содержит префикс "Bearer ")
     static func save(_ token: String) {
-        let data = Data(token.utf8)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -45,7 +40,7 @@ enum TokenStore {
         ]
         SecItemDelete(query as CFDictionary)
         var add = query
-        add[kSecValueData as String] = data
+        add[kSecValueData as String] = Data(token.utf8)
         SecItemAdd(add as CFDictionary, nil)
     }
 
@@ -85,42 +80,61 @@ final class AuthService {
         self.session = session
     }
 
-    /// POST {baseURL}/cabinet/auth/login, form-data: login, password
+    /// Вход по логину и паролю: POST cabinet/auth/login
     func login(login: String, password: String) async throws {
-        let boundary = "Boundary-\(UUID().uuidString)"
+        let json = try await send(path: "cabinet/auth/login",
+                                  fields: ["login": login, "password": password])
+        try saveToken(from: json)
+    }
 
-        var request = makeRequest(path: "cabinet/auth/login", method: "POST")
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        request.httpBody = Self.formBody(
-            fields: ["login": login, "password": password],
-            boundary: boundary
-        )
+    /// Шаг 1, телефон: POST cabinet/auth/phone
+    /// Номер уходит в формате 8XXXXXXXXXX (вместо +7 отправляем 8)
+    func requestPhoneCode(phone: String) async throws {
+        _ = try await send(path: "cabinet/auth/phone", fields: ["phone": phone])
+    }
 
-        let (data, response) = try await perform(request)
-        guard let http = response as? HTTPURLResponse else { throw AuthError.serviceUnavailable }
-
-        let decoded: APIResponse<TokenData>
-        do {
-            decoded = try JSONDecoder().decode(APIResponse<TokenData>.self, from: data)
-        } catch {
-            throw AuthError.serviceUnavailable
-        }
-
-        guard http.statusCode == 200, decoded.success, let token = decoded.data?.token else {
-            // Ошибки из документации: -401 Unauthorized и т.п.
-            if decoded.code == -401 { throw AuthError.invalidCredentials }
-            throw AuthError.serviceUnavailable
-        }
-
-        TokenStore.save(token)
+    /// Шаг 2, код из SMS: POST cabinet/auth/phone/otp, в ответ приходит токен
+    func confirmPhoneCode(otp: String) async throws {
+        let json = try await send(path: "cabinet/auth/phone/otp", fields: ["otp": otp])
+        try saveToken(from: json)
     }
 
     // MARK: Helpers
 
-    /// Общий конструктор запросов: базовый URL и обязательный User-Agent для каждого запроса
+    private func saveToken(from json: [String: Any]) throws {
+        guard let data = json["data"] as? [String: Any],
+              let token = data["token"] as? String else {
+            throw AuthError.serviceUnavailable
+        }
+        TokenStore.save(token)
+    }
+
+    /// Отправляет form-data запрос и проверяет ответ. Возвращает полный JSON ответа.
+    private func send(path: String, fields: [String: String]) async throws -> [String: Any] {
+        let boundary = "Boundary-\(UUID().uuidString)"
+
+        var request = makeRequest(path: path, method: "POST")
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.httpBody = Self.formBody(fields: fields, boundary: boundary)
+
+        let (data, response) = try await perform(request)
+        guard let http = response as? HTTPURLResponse else { throw AuthError.serviceUnavailable }
+
+        guard let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let status = try? JSONDecoder().decode(APIStatus.self, from: data) else {
+            throw AuthError.serviceUnavailable
+        }
+
+        guard http.statusCode == 200, status.success else {
+            if status.code == -401 { throw AuthError.invalidCredentials }
+            throw AuthError.serviceUnavailable
+        }
+        return json
+    }
+
+    /// Общий конструктор запросов: базовый URL и обязательный User-Agent
     private func makeRequest(path: String, method: String) -> URLRequest {
-        let url = Self.baseURL.appendingPathComponent(path)
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: Self.baseURL.appendingPathComponent(path))
         request.httpMethod = method
         request.setValue(Self.userAgent, forHTTPHeaderField: "User-Agent")
         return request
