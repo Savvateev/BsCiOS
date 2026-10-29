@@ -134,6 +134,26 @@ final class AuthService {
         }
     }
 
+    /// Доступность обещанного платежа: GET cabinet/user/services/credit
+    /// Возвращает true, если data.available == 1. Любая ошибка считается «недоступно».
+    func fetchCreditAvailable() async -> Bool {
+        guard let token = TokenStore.load() else { return false }
+
+        var request = makeRequest(path: "cabinet/user/services/credit", method: "GET")
+        request.setValue(token, forHTTPHeaderField: "Authorization")
+
+        guard let (data, response) = try? await perform(request),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let envelope = try? JSONDecoder().decode(CreditEnvelope.self, from: data),
+              envelope.success else {
+            return false
+        }
+        #if DEBUG
+        print("[Auth] credit available=\(envelope.data.available) active=\(envelope.data.active)")
+        #endif
+        return envelope.data.available == 1
+    }
+
     // MARK: Helpers
 
     private func saveToken(from json: [String: Any]) throws {
@@ -213,6 +233,18 @@ final class AuthService {
         body.append("--\(boundary)--\r\n")
         return body
     }
+}
+
+// MARK: - Обещанный платеж (cabinet/user/services/credit)
+
+private struct CreditEnvelope: Decodable {
+    let success: Bool
+    let data: CreditData
+}
+
+private struct CreditData: Decodable {
+    let available: Int
+    let active: Int
 }
 
 // MARK: - Модель абонента (cabinet/user)

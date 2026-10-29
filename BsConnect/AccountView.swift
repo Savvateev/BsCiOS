@@ -12,6 +12,8 @@ struct AccountView: View {
     let account: Account
     var onPay: () -> Void = {}
     var onPromisedPayment: () -> Void = {}
+    /// Доступность обещанного платежа из cabinet/user/services/credit
+    var canUsePromisedPayment: Bool = false
 
     var body: some View {
         ScrollView {
@@ -30,6 +32,8 @@ struct AccountView: View {
                     SecondaryButton(title: "Обещанный платеж") {
                         onPromisedPayment()
                     }
+                    .disabled(!canUsePromisedPayment)
+                    .opacity(canUsePromisedPayment ? 1 : 0.4)
                 }
                 .padding(.top, 4)
             }

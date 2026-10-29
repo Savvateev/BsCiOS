@@ -9,7 +9,7 @@
 import SwiftUI
 
 enum AppRoute: Hashable {
-    case account(Account)
+    case account(Account, Bool)    // данные абонента и доступность обещанного платежа
     case promisedPayment(Double)
 }
 
@@ -25,10 +25,11 @@ struct AppRoot: View {
             })
             .navigationDestination(for: AppRoute.self) { route in
                 switch route {
-                case .account(let account):
+                case .account(let account, let creditAvailable):
                     AccountView(
                         account: account,
-                        onPromisedPayment: { path.append(.promisedPayment(account.totalCost)) }
+                        onPromisedPayment: { path.append(.promisedPayment(account.totalCost)) },
+                        canUsePromisedPayment: creditAvailable
                     )
                 case .promisedPayment(let amount):
                     PromisedPaymentView(amount: amount)
@@ -48,12 +49,13 @@ struct AppRoot: View {
         Task {
             do {
                 let user = try await authService.fetchUser()
+                let creditAvailable = await authService.fetchCreditAvailable()
                 await MainActor.run {
                     let account = Account(user: user)
                     #if DEBUG
-                    print("[Account] fio=\(account.fullName) tariff=\(account.tariffName) balance=\(account.balance) total=\(account.totalCost) tv=\(account.tvSubscription ?? "-")")
+                    print("[Account] fio=\(account.fullName) tariff=\(account.tariffName) balance=\(account.balance) total=\(account.totalCost) tv=\(account.tvSubscription ?? "-") credit=\(creditAvailable)")
                     #endif
-                    path = [.account(account)]
+                    path = [.account(account, creditAvailable)]
                 }
             } catch {
                 await MainActor.run {
