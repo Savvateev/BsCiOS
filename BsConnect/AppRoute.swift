@@ -84,7 +84,7 @@ struct Account: Hashable {
     /// Перевод ответа API в модель экрана. Суммы приходят строками.
     init(user: CabinetUser) {
         fullName = user.fio
-        tariffName = user.packet
+        tariffName = Self.cleanTariff(user.packet)
         balance = Double(user.deposit) ?? 0
         nextPaymentDate = Self.parseDate(user.nextPaymentDate)
         tvSubscription = user.tvSubscriptionName
@@ -102,6 +102,12 @@ struct Account: Hashable {
         self.tvSubscription = tvSubscription
         self.tariffPrice = tariffPrice
         self.subscriptionPrice = subscriptionPrice
+    }
+
+    /// Убирает скобки и всё внутри них, например "Unlim-130 (тест)" -> "Unlim-130"
+    static func cleanTariff(_ name: String) -> String {
+        name.replacingOccurrences(of: "\\s*\\([^)]*\\)", with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
     }
 
     private static func parseDate(_ text: String) -> Date? {
