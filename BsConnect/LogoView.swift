@@ -57,18 +57,19 @@ extension Color {
     )
 }
 
-// MARK: - Logo (заглушка, позже замените на Image("logo"))
+// MARK: - Logo
 
 struct LogoView: View {
     var size: CGFloat = 96
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: size * 0.25)
-                .fill(Color.appBlue)
-            Image(systemName: "antenna.radiowaves.left.and.right")
-                .font(.system(size: size * 0.45, weight: .bold))
-                .foregroundColor(.appOrange)
+//            RoundedRectangle(cornerRadius: size * 0.25)
+//                .stroke(Color.appBlue, lineWidth: 2)           // рамка вместо синей плитки
+            Image("logo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: size, height: size)   // тот же размер, что был у антенны
         }
         .frame(width: size, height: size)
         .accessibilityLabel("Логотип")

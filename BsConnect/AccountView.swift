@@ -12,6 +12,8 @@ struct AccountView: View {
     let account: Account
     var onPay: () -> Void = {}
     var onPromisedPayment: () -> Void = {}
+    /// Доступность обещанного платежа из cabinet/user/services/credit
+    var canUsePromisedPayment: Bool = false
 
     var body: some View {
         ScrollView {
@@ -30,6 +32,8 @@ struct AccountView: View {
                     SecondaryButton(title: "Обещанный платеж") {
                         onPromisedPayment()
                     }
+                    .disabled(!canUsePromisedPayment)
+                    .opacity(canUsePromisedPayment ? 1 : 0.4)
                 }
                 .padding(.top, 4)
             }
@@ -48,7 +52,7 @@ struct AccountView: View {
             row("Текущий баланс", account.balance.rubles,
                 valueColor: account.balance < 0 ? .appAlert : .appText)
             row("Дата следующего платежа",
-                account.nextPaymentDate.formatted(date: .long, time: .omitted))
+                account.nextPaymentDate.map { $0.formatted(date: .long, time: .omitted) } ?? "—")
             row("Доп. подписка ТВ", account.tvSubscription ?? "Не подключена")
         }
         .padding(16)
