@@ -9,13 +9,12 @@
 import SwiftUI
 
 enum AppRoute: Hashable {
-    case account
-    case promisedPayment
+    case account(Account)
+    case promisedPayment(Double)
 }
 
 struct AppRoot: View {
     @State private var path: [AppRoute] = []
-    @State private var account = Account.empty   // пустые данные, не моки: до загрузки ничего фейкового не покажется
     @State private var loadError: AuthError?
     private let authService = AuthService()
 
@@ -26,14 +25,13 @@ struct AppRoot: View {
             })
             .navigationDestination(for: AppRoute.self) { route in
                 switch route {
-                case .account:
-                    let _ = debugLog("AccountView получил fio=\(account.fullName), total=\(account.totalCost)")
+                case .account(let account):
                     AccountView(
                         account: account,
-                        onPromisedPayment: { path.append(.promisedPayment) }
+                        onPromisedPayment: { path.append(.promisedPayment(account.totalCost)) }
                     )
-                case .promisedPayment:
-                    PromisedPaymentView(amount: account.totalCost)
+                case .promisedPayment(let amount):
+                    PromisedPaymentView(amount: amount)
                 }
             }
         }
@@ -51,11 +49,11 @@ struct AppRoot: View {
             do {
                 let user = try await authService.fetchUser()
                 await MainActor.run {
-                    account = Account(user: user)
+                    let account = Account(user: user)
                     #if DEBUG
                     print("[Account] fio=\(account.fullName) tariff=\(account.tariffName) balance=\(account.balance) total=\(account.totalCost) tv=\(account.tvSubscription ?? "-")")
                     #endif
-                    path = [.account]
+                    path = [.account(account)]
                 }
             } catch {
                 await MainActor.run {
@@ -68,7 +66,7 @@ struct AppRoot: View {
 
 // MARK: - Модель (моки, позже заменим на данные с сервера)
 
-struct Account {
+struct Account: Hashable {
     var fullName: String
     var tariffName: String
     var balance: Double
@@ -128,11 +126,3 @@ struct Account {
     )
 }
 
-/// Печатает только в DEBUG-сборке
-@discardableResult
-func debugLog(_ message: @autoclosure () -> String) -> Bool {
-    #if DEBUG
-    print("[App] \(message())")
-    #endif
-    return true
-}
