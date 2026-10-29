@@ -104,7 +104,7 @@ struct Account: Hashable {
         self.subscriptionPrice = subscriptionPrice
     }
 
-    /// Убирает скобки и всё внутри них, например "Unlim-130 (тест)" -> "Unlim-130"
+    /// Убирает скобки и всё внутри них, например "(10) Интернет" -> "Интернет"
     static func cleanTariff(_ name: String) -> String {
         name.replacingOccurrences(of: "\\s*\\([^)]*\\)", with: "", options: .regularExpression)
             .trimmingCharacters(in: .whitespaces)
@@ -133,4 +133,3 @@ struct Account: Hashable {
         subscriptionPrice: 199.0
     )
 }
-
