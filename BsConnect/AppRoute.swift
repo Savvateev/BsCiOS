@@ -72,8 +72,10 @@ struct Account {
     var tvSubscription: String?
     var tariffPrice: Double
     var subscriptionPrice: Double
+    /// Итог из API (fee.total). Если не задан, считаем сумму тарифа и подписки.
+    var serverTotal: Double?
 
-    var totalCost: Double { tariffPrice + subscriptionPrice }
+    var totalCost: Double { serverTotal ?? (tariffPrice + subscriptionPrice) }
 
     /// Перевод ответа API в модель экрана. Суммы приходят строками.
     init(user: CabinetUser) {
@@ -84,6 +86,7 @@ struct Account {
         tvSubscription = user.tvSubscriptionName
         tariffPrice = Double(user.tariffPrice) ?? 0
         subscriptionPrice = Double(user.subscriptionPrice) ?? 0
+        serverTotal = Double(user.total)
     }
 
     init(fullName: String, tariffName: String, balance: Double, nextPaymentDate: Date,
