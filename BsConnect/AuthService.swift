@@ -212,6 +212,24 @@ final class AuthService {
 
 // MARK: - Модель абонента (cabinet/user)
 
+/// Значение, которое API может прислать строкой, числом или null
+struct FlexString: Decodable {
+    let value: String
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.singleValueContainer()
+        if c.decodeNil() {
+            value = ""
+        } else if let s = try? c.decode(String.self) {
+            value = s
+        } else if let d = try? c.decode(Double.self) {
+            value = d.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(d)) : String(d)
+        } else {
+            value = ""
+        }
+    }
+}
+
 private struct UserEnvelope: Decodable {
     let success: Bool
     let code: Int
@@ -237,27 +255,28 @@ struct CabinetUser: Decodable {
     private struct Fee: Decodable {
         let packet: Price
         let subscriptions: Subscriptions
-        let total: String
+        let total: FlexString
 
-        struct Price: Decodable { let price: String }
+        struct Price: Decodable { let price: FlexString }
         struct Subscriptions: Decodable {
-            let total: String
+            let total: FlexString
             let detailed: [Item]
-            struct Item: Decodable { let name: String }
+            struct Item: Decodable { let name: FlexString }
         }
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        fio = try c.decode(String.self, forKey: .fio)
-        packet = try c.decode(String.self, forKey: .packet)
-        deposit = try c.decode(String.self, forKey: .deposit)
-        nextPaymentDate = try c.decode(String.self, forKey: .nextPaymentDate)
+        fio = try c.decode(FlexString.self, forKey: .fio).value
+        packet = try c.decode(FlexString.self, forKey: .packet).value
+        deposit = try c.decode(FlexString.self, forKey: .deposit).value
+        nextPaymentDate = try c.decode(FlexString.self, forKey: .nextPaymentDate).value
         let fee = try c.decode(Fee.self, forKey: .fee)
-        tariffPrice = fee.packet.price
-        subscriptionPrice = fee.subscriptions.total
-        total = fee.total
-        tvSubscriptionName = fee.subscriptions.detailed.first?.name
+        tariffPrice = fee.packet.price.value
+        subscriptionPrice = fee.subscriptions.total.value
+        total = fee.total.value
+        let first = fee.subscriptions.detailed.first?.name.value
+        tvSubscriptionName = (first?.isEmpty == false) ? first : nil
     }
 }
 
