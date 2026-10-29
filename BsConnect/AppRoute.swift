@@ -16,12 +16,13 @@ enum AppRoute: Hashable {
 struct AppRoot: View {
     @State private var path: [AppRoute] = []
     @State private var account = Account.mock
+    @State private var loadError: AuthError?
+    private let authService = AuthService()
 
     var body: some View {
         NavigationStack(path: $path) {
             AuthView(onAuthorized: {
-                // TODO: логика: после успешной авторизации
-                path = [.account]
+                loadUser()
             })
             .navigationDestination(for: AppRoute.self) { route in
                 switch route {
@@ -36,6 +37,28 @@ struct AppRoot: View {
             }
         }
         .tint(.appBlue)
+        .alert("Ошибка", isPresented: Binding(get: { loadError != nil }, set: { if !$0 { loadError = nil } })) {
+            Button("Повторить") { loadUser() }
+        } message: {
+            Text("Сервис временно недоступен. Повторите попытку позже.")
+        }
+    }
+
+    /// После входа загружаем данные абонента и открываем экран абонента
+    private func loadUser() {
+        Task {
+            do {
+                let user = try await authService.fetchUser()
+                await MainActor.run {
+                    account = Account(user: user)
+                    path = [.account]
+                }
+            } catch {
+                await MainActor.run {
+                    loadError = (error as? AuthError) ?? .serviceUnavailable
+                }
+            }
+        }
     }
 }
 
@@ -51,6 +74,35 @@ struct Account {
     var subscriptionPrice: Double
 
     var totalCost: Double { tariffPrice + subscriptionPrice }
+
+    /// Перевод ответа API в модель экрана. Суммы приходят строками.
+    init(user: CabinetUser) {
+        fullName = user.fio
+        tariffName = user.packet
+        balance = Double(user.deposit) ?? 0
+        nextPaymentDate = Self.parseDate(user.nextPaymentDate) ?? .now
+        tvSubscription = user.tvSubscriptionName
+        tariffPrice = Double(user.tariffPrice) ?? 0
+        subscriptionPrice = Double(user.subscriptionPrice) ?? 0
+    }
+
+    init(fullName: String, tariffName: String, balance: Double, nextPaymentDate: Date,
+         tvSubscription: String?, tariffPrice: Double, subscriptionPrice: Double) {
+        self.fullName = fullName
+        self.tariffName = tariffName
+        self.balance = balance
+        self.nextPaymentDate = nextPaymentDate
+        self.tvSubscription = tvSubscription
+        self.tariffPrice = tariffPrice
+        self.subscriptionPrice = subscriptionPrice
+    }
+
+    private static func parseDate(_ text: String) -> Date? {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "dd-MM-yyyy"
+        return f.date(from: text)
+    }
 
     static let mock = Account(
         fullName: "Иванов Иван Иванович",

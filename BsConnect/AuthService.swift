@@ -99,6 +99,24 @@ final class AuthService {
         try saveToken(from: json)
     }
 
+    /// Данные абонента: GET cabinet/user, токен в заголовке Authorization
+    func fetchUser() async throws -> CabinetUser {
+        guard let token = TokenStore.load() else { throw AuthError.invalidCredentials }
+
+        var request = makeRequest(path: "cabinet/user", method: "GET")
+        request.setValue(token, forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await perform(request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw AuthError.serviceUnavailable
+        }
+        guard let envelope = try? JSONDecoder().decode(UserEnvelope.self, from: data),
+              envelope.success else {
+            throw AuthError.serviceUnavailable
+        }
+        return envelope.data
+    }
+
     // MARK: Helpers
 
     private func saveToken(from json: [String: Any]) throws {
@@ -174,6 +192,57 @@ final class AuthService {
         }
         body.append("--\(boundary)--\r\n")
         return body
+    }
+}
+
+// MARK: - Модель абонента (cabinet/user)
+
+private struct UserEnvelope: Decodable {
+    let success: Bool
+    let code: Int
+    let data: CabinetUser
+}
+
+/// Поля, которые нужны экранам. Остальные поля ответа игнорируются.
+struct CabinetUser: Decodable {
+    let fio: String
+    let packet: String              // тарифный план, например "Unlim-130"
+    let deposit: String             // текущий баланс
+    let nextPaymentDate: String     // дата следующего платежа (поле уточнить)
+    let tvSubscriptionName: String? // доп. подписка ТВ (из fee.subscriptions.detailed)
+    let tariffPrice: String         // стоимость тарифа (fee.packet.price)
+    let subscriptionPrice: String   // стоимость подписки (fee.subscriptions.total)
+    let total: String               // итоговая стоимость (fee.total)
+
+    private enum CodingKeys: String, CodingKey {
+        case fio, packet, deposit, fee
+        case nextPaymentDate = "erec_payment"
+    }
+
+    private struct Fee: Decodable {
+        let packet: Price
+        let subscriptions: Subscriptions
+        let total: String
+
+        struct Price: Decodable { let price: String }
+        struct Subscriptions: Decodable {
+            let total: String
+            let detailed: [Item]
+            struct Item: Decodable { let name: String }
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        fio = try c.decode(String.self, forKey: .fio)
+        packet = try c.decode(String.self, forKey: .packet)
+        deposit = try c.decode(String.self, forKey: .deposit)
+        nextPaymentDate = try c.decode(String.self, forKey: .nextPaymentDate)
+        let fee = try c.decode(Fee.self, forKey: .fee)
+        tariffPrice = fee.packet.price
+        subscriptionPrice = fee.subscriptions.total
+        total = fee.total
+        tvSubscriptionName = fee.subscriptions.detailed.first?.name
     }
 }
 
