@@ -87,7 +87,7 @@ struct Account: Hashable {
         tariffName = Self.cleanTariff(user.packet)
         balance = Double(user.deposit) ?? 0
         nextPaymentDate = Self.parseDate(user.nextPaymentDate)
-        tvSubscription = user.tvSubscriptionName
+        tvSubscription = user.tvSubscriptionName.map(Self.cleanTariff)
         tariffPrice = Double(user.tariffPrice) ?? 0
         subscriptionPrice = Double(user.subscriptionPrice) ?? 0
         serverTotal = Double(user.total)
