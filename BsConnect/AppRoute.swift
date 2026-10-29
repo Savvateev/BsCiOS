@@ -15,7 +15,7 @@ enum AppRoute: Hashable {
 
 struct AppRoot: View {
     @State private var path: [AppRoute] = []
-    @State private var account = Account.mock
+    @State private var account = Account.empty   // пустые данные, не моки: до загрузки ничего фейкового не покажется
     @State private var loadError: AuthError?
     private let authService = AuthService()
 
@@ -51,6 +51,9 @@ struct AppRoot: View {
                 let user = try await authService.fetchUser()
                 await MainActor.run {
                     account = Account(user: user)
+                    #if DEBUG
+                    print("[Account] fio=\(account.fullName) tariff=\(account.tariffName) balance=\(account.balance) total=\(account.totalCost) tv=\(account.tvSubscription ?? "-")")
+                    #endif
                     path = [.account]
                 }
             } catch {
@@ -107,6 +110,12 @@ struct Account {
         return f.date(from: text)
     }
 
+    static let empty = Account(
+        fullName: "", tariffName: "", balance: 0, nextPaymentDate: .now,
+        tvSubscription: nil, tariffPrice: 0, subscriptionPrice: 0
+    )
+
+    /// Только для превью в Canvas, в приложении не используется
     static let mock = Account(
         fullName: "Иванов Иван Иванович",
         tariffName: "Безлимит 500",
