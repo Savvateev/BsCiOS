@@ -27,6 +27,7 @@ struct AppRoot: View {
             .navigationDestination(for: AppRoute.self) { route in
                 switch route {
                 case .account:
+                    let _ = debugLog("AccountView получил fio=\(account.fullName), total=\(account.totalCost)")
                     AccountView(
                         account: account,
                         onPromisedPayment: { path.append(.promisedPayment) }
@@ -71,7 +72,7 @@ struct Account {
     var fullName: String
     var tariffName: String
     var balance: Double
-    var nextPaymentDate: Date
+    var nextPaymentDate: Date?
     var tvSubscription: String?
     var tariffPrice: Double
     var subscriptionPrice: Double
@@ -85,14 +86,14 @@ struct Account {
         fullName = user.fio
         tariffName = user.packet
         balance = Double(user.deposit) ?? 0
-        nextPaymentDate = Self.parseDate(user.nextPaymentDate) ?? .now
+        nextPaymentDate = Self.parseDate(user.nextPaymentDate)
         tvSubscription = user.tvSubscriptionName
         tariffPrice = Double(user.tariffPrice) ?? 0
         subscriptionPrice = Double(user.subscriptionPrice) ?? 0
         serverTotal = Double(user.total)
     }
 
-    init(fullName: String, tariffName: String, balance: Double, nextPaymentDate: Date,
+    init(fullName: String, tariffName: String, balance: Double, nextPaymentDate: Date?,
          tvSubscription: String?, tariffPrice: Double, subscriptionPrice: Double) {
         self.fullName = fullName
         self.tariffName = tariffName
@@ -111,7 +112,7 @@ struct Account {
     }
 
     static let empty = Account(
-        fullName: "", tariffName: "", balance: 0, nextPaymentDate: .now,
+        fullName: "", tariffName: "", balance: 0, nextPaymentDate: nil,
         tvSubscription: nil, tariffPrice: 0, subscriptionPrice: 0
     )
 
@@ -125,4 +126,13 @@ struct Account {
         tariffPrice: 590.0,
         subscriptionPrice: 199.0
     )
+}
+
+/// Печатает только в DEBUG-сборке
+@discardableResult
+func debugLog(_ message: @autoclosure () -> String) -> Bool {
+    #if DEBUG
+    print("[App] \(message())")
+    #endif
+    return true
 }

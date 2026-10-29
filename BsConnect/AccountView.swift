@@ -48,7 +48,7 @@ struct AccountView: View {
             row("Текущий баланс", account.balance.rubles,
                 valueColor: account.balance < 0 ? .appAlert : .appText)
             row("Дата следующего платежа",
-                account.nextPaymentDate.formatted(date: .long, time: .omitted))
+                account.nextPaymentDate.map { $0.formatted(date: .long, time: .omitted) } ?? "—")
             row("Доп. подписка ТВ", account.tvSubscription ?? "Не подключена")
         }
         .padding(16)
