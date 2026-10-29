@@ -111,7 +111,12 @@ final class AuthService {
 
         #if DEBUG
         print("[Auth] cabinet/user status: \(http.statusCode)")
-        print("[Auth] cabinet/user body: \(String(decoding: data.prefix(500), as: UTF8.self))")
+        // Не печатаем весь ответ: в нём есть пароль и персональные данные
+        if let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+           let d = json["data"] as? [String: Any],
+           let fee = d["fee"] as? [String: Any] {
+            print("[Auth] cabinet/user fields: date_itog=\(d["date_itog"] ?? "-") fee.total=\(fee["total"] ?? "-") fee.packet.price=\((fee["packet"] as? [String: Any])?["price"] ?? "-") subscriptions=\(((fee["subscriptions"] as? [String: Any])?["detailed"]) ?? "-")")
+        }
         #endif
 
         guard http.statusCode == 200 else {
