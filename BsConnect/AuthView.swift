@@ -84,6 +84,10 @@ struct AuthView: View {
             let cleaned = Self.sanitizePhone(value)
             if cleaned != value { phoneDigits = cleaned }
         }
+        .onChange(of: smsCode) { value in
+            let formatted = Self.formatSmsCode(value)
+            if formatted != value { smsCode = formatted }
+        }
     }
 
     // MARK: Поля
@@ -119,7 +123,7 @@ struct AuthView: View {
             )
 
             if isSmsSent {
-                TextField("Код из SMS", text: $smsCode)
+                TextField("xx-xx-xx-xx", text: $smsCode)
                     .keyboardType(.numberPad)
                     .textFieldStyle(AppTextFieldStyle())
 
@@ -181,7 +185,7 @@ struct AuthView: View {
     }
 
     private func confirmCode() {
-        let code = smsCode
+        let code = smsCode   // уже в формате xx-xx-xx-xx
         perform({ try await authService.confirmPhoneCode(otp: code) }) {
             onAuthorized()
         }
@@ -221,7 +225,7 @@ struct AuthView: View {
         guard authError == .invalidCredentials else { return "Ошибка" }
         switch method {
         case .login: return "Неверный логин или пароль"
-        case .phone: return isSmsSent ? "Неверный код из SMS" : "Неверный номер телефона"
+        case .phone: return isSmsSent ? "Код неверный" : "Неверный номер телефона"
         }
     }
 
@@ -231,12 +235,25 @@ struct AuthView: View {
             return "Нет подключения к интернету или сервер недоступен. Проверьте соединение и повторите."
         case .serviceUnavailable:
             return "Сервис временно недоступен. Повторите попытку позже."
-        case .invalidCredentials, .none:
+        case .invalidCredentials:
+            return method == .phone && isSmsSent ? "Попробуйте еще" : nil
+        case .none:
             return nil
         }
     }
 
     // MARK: Ввод номера
+
+    /// Код из SMS: максимум 8 цифр в формате xx-xx-xx-xx
+    static func formatSmsCode(_ raw: String) -> String {
+        let digits = String(raw.filter(\.isNumber).prefix(8))
+        var result = ""
+        for (i, ch) in digits.enumerated() {
+            if i > 0 && i % 2 == 0 { result.append("-") }
+            result.append(ch)
+        }
+        return result
+    }
 
     /// Оставляет только 10 цифр после +7, первая цифра всегда 9.
     /// Если вставили номер с кодом страны (7 или 8 в начале), код убираем.
